@@ -4,6 +4,7 @@ import math
 import torch
 from tqdm import tqdm
 
+from generate import generate
 from model import GPT, GPTConfig
 
 
