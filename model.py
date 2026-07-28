@@ -1,8 +1,8 @@
-
 from dataclasses import dataclass
 
 import torch
-import torch.nn as nn
+from torch import nn
+
 
 @dataclass
 class GPTConfig:
@@ -11,9 +11,6 @@ class GPTConfig:
     n_layer: int = 6           # number of transformer blocks
     n_head: int = 6            # number of attention heads
     n_embd: int = 384          # embedding dimension
-
-
-
 
 class GPT(nn.Module):
     def __init__(self, config):
