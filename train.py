@@ -148,5 +148,5 @@ def train(data_path, max_steps=5000, batch_size=64,
 
 if __name__ == "__main__":
     import sys
-    data_path = sys.argv[1] if len(sys.argv) > 1 else "../data/shakespeare.txt"
+    data_path = sys.argv[1] if len(sys.argv) > 1 else "./data/shakespeare.txt"
     train(data_path)
