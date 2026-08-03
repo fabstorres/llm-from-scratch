@@ -1,6 +1,7 @@
 import json
 import math
 
+import numpy as np
 import torch
 from tqdm import tqdm
 
@@ -32,6 +33,45 @@ def load_data(filepath, block_size, batch_size, device):
     return get_train, get_val, vocab_size, stoi, itos
 
 
+def load_bin_data(filepath, block_size, batch_size, device):
+    metadata_path = f"{filepath}.json"
+    with open(metadata_path, "r", encoding="utf-8") as f:
+        metadata = json.load(f)
+
+    if metadata["dtype"] != "uint16":
+        raise ValueError(f"Unsupported token dtype: {metadata['dtype']}")
+
+    vocab = metadata["vocab"]
+    vocab_size = len(vocab)
+    stoi = {char: token_id for token_id, char in enumerate(vocab)}
+    itos = {token_id: char for token_id, char in enumerate(vocab)}
+
+    # Memory mapping keeps the full dataset on disk. Only sampled batches are
+    # copied into RAM and then transferred to the selected device.
+    tokens = np.memmap(filepath, dtype=np.uint16, mode="r")
+    print(f"Dataset: {len(tokens):,} tokens, vocab size: {vocab_size}")
+
+    def get_batch(start, end):
+        if end - start <= block_size:
+            raise ValueError(
+                f"Split has {end - start:,} tokens but block size is {block_size}"
+            )
+
+        starts = np.random.randint(start, end - block_size, size=batch_size)
+        offsets = np.arange(block_size + 1)
+        batch = tokens[starts[:, None] + offsets].astype(np.int64)
+        batch = torch.from_numpy(batch)
+
+        x = batch[:, :-1].to(device)
+        y = batch[:, 1:].to(device)
+        return x, y
+
+    n = int(0.9 * len(tokens))
+    get_train = lambda: get_batch(0, n)
+    get_val = lambda: get_batch(n, len(tokens))
+    return get_train, get_val, vocab_size, stoi, itos
+
+
 def get_device():
     if torch.backends.mps.is_available():
         return torch.device("mps")     # Apple Silicon GPU
@@ -54,7 +94,8 @@ def train(data_path, max_steps=5000, batch_size=64,
     device = get_device()
     print(f"Using device: {device}")
 
-    get_train_batch, get_val_batch, vocab_size, stoi, itos = load_data(
+    data_loader = load_bin_data if str(data_path).endswith(".bin") else load_data
+    get_train_batch, get_val_batch, vocab_size, stoi, itos = data_loader(
         data_path, block_size, batch_size, device
     )
 
@@ -149,4 +190,4 @@ def train(data_path, max_steps=5000, batch_size=64,
 if __name__ == "__main__":
     import sys
     data_path = sys.argv[1] if len(sys.argv) > 1 else "./data/shakespeare.txt"
-    train(data_path, n_layer=3, n_head=4, n_embd=112, block_size=256)
+    train(data_path, batch_size=16, n_layer=3, n_head=4, n_embd=112, block_size=256)

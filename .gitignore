@@ -20,9 +20,10 @@ loss_log.json
 *.png
 *.wav
 
-# Data (scratchpad data is ignored, top-level data/ is committed)
+# Data
 scratchpad/data/
-data/openwebtext/
+data/*
+!data/shakespeare.txt
 
 # VS Code
 .vscode/
